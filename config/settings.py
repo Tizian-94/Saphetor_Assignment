@@ -21,7 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 #VCF path
-VCF_FILE_PATH = Path(os.environ.get('VCF_FILE_PATH', BASE_DIR / 'data' / 'sample.vcf'))
+VCF_FILE_PATH = (BASE_DIR / os.environ.get('VCF_FILE_PATH', 'data/sample.vcf')).resolve()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/

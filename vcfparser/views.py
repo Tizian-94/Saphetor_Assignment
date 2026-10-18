@@ -10,8 +10,9 @@ from vcfparser.pagination import StandardResultsSetPagination
 from vcfparser.permissions import BearerSecretPermission
 from vcfparser.serializers import VariantSerializer, VariantWriteSerializer
 from vcfparser.services import vcf_service
+from vcfparser.mixins import ETagMixin
 
-class VariantView(APIView):
+class VariantView(ETagMixin, APIView):
 
     def get_permissions(self):
         # writes require the shared secret since GET is public, intentionally strict project default security
