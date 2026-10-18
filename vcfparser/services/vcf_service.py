@@ -97,11 +97,17 @@ def rewrite_vcf(path):
 
     #get_variants(queryset_or_page_params) - django rest framework
     #filter_by_id(variant_id) - return queryset filtered by variant_id
+
     #append_variant(data: dict) - validate then insert db row, append to file and update vcfHeader.file_mtime/size
-    # def append_variant(data):
+    def append_variant(data):
+        raise NotImplementedError
+    
     #update_variants(variant_id, data: dict) -> int - patch the matching rows inside the db and rewrite the file atomically, return count of modified records
-    # def update_variants(variant_id, data):
+    def update_variants(variant_id, data):
+        raise NotImplementedError
+    
     #delete_variants(variant_id) -> int - delete matching rows and rewrite the file atomically, return count of deleted records
-    # def delete_variants(variant_id):
+    def delete_variants(variant_id):
+        raise NotImplementedError
     #rewrite_vcf(path) - atomic write helper: read the header + variants from db, write to path.tmp, os.replace
 

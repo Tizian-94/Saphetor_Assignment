@@ -32,6 +32,9 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-for-d
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG','False') == 'True' #env settings conflict fix
 
+# API Secret
+API_SECRET = os.environ.get('API_SECRET', '')
+
 ALLOWED_HOSTS = []
 
 
@@ -135,13 +138,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.XMLRenderer',
+        'rest_framework_xml.renderers.XMLRenderer',
     ],
     'DEFAULT_PAGINATION_CLASS': 'vcfparser.pagination.StandardResultsSetPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_AUTHENTICATION_CLASSES': [],
     'DEFAULT_PERMISSION_CLASSES': [
-        'vcfparser.permissions.AllowAny',
+        'vcfparser.permissions.BearerSecretPermission',
     ],
     'UNAUTHENTICATED_USER': None,
 }
