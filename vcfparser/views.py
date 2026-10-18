@@ -45,7 +45,7 @@ class VariantView(APIView):
         serializer = VariantWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        vcf_service.append_variant(serializer.validated_data)
+        vcf_service.append_variant(serializer.validated_data, settings.VCF_FILE_PATH)
         return Response(status=status.HTTP_201_CREATED)
 
     def put(self, request):
@@ -64,7 +64,7 @@ class VariantView(APIView):
         serializer.is_valid(raise_exception=True)
 
         modified = vcf_service.update_variants(
-            variant_id, serializer.validated_data
+            variant_id, serializer.validated_data, settings.VCF_FILE_PATH
         )
         if modified == 0:
             return Response(
@@ -77,8 +77,15 @@ class VariantView(APIView):
         vcf_service.ensure_fresh(str(settings.VCF_FILE_PATH))
 
         variant_id = request.query_params.get('id')
-        # if client sends ?id= for put/delete treat as unknown record to modify and return 400
+        # if client sends ?id= for mutation treat as malformed and return 400
         if not variant_id:
+            return Response(
+                {'detail':"'id' query parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        deleted = vcf_service.delete_variants(variant_id, settings.VCF_FILE_PATH)
+        if deleted == 0:
             return Response(
                 {'detail':f"No variant with id '{variant_id}'"},
                 status=status.HTTP_404_NOT_FOUND,

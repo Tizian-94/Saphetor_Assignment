@@ -68,6 +68,16 @@ def ensure_fresh(path):
     if VcfHeader.is_stale(path):
         load_into_db(path)
 
+def _refresh_fingerprint(path):
+    #sync stored vcfheader fingerprint to current file on disk
+    header = VcfHeader.objects.first()
+    if header is None:
+        return
+    stat = os.stat(path)
+    header.file_mtime = stat.st_mtime
+    header.file_size = stat.st_size
+    header.save(update_fields=['file_mtime','file_size'])
+
 def rewrite_vcf(path):
     # rebuild VCF from DB and atomically replace file on disk. original is never left half written. App writes to <path>/tmp and swaps it with os.replace.
 
@@ -75,7 +85,7 @@ def rewrite_vcf(path):
     if header is None:
         raise RuntimeError("No VcfHeader in DB - run load_into_db first")
 
-    tmp_path = path + '.tmp'
+    tmp_path = str(path) + '.tmp'
     try:
         with open(tmp_path, 'w', newline='') as fh:
             fh.write(header.content)
@@ -90,24 +100,71 @@ def rewrite_vcf(path):
         raise
 
     #refresh fingerprint so that is_stale() doesn't trip
-    stat = os.stat(path)
-    header.file_mtime = stat.st_mtime
-    header.file_size = stat.st_size
-    header.save(update_fields=['file_mtime', 'file_size'])
-
-    #get_variants(queryset_or_page_params) - django rest framework
-    #filter_by_id(variant_id) - return queryset filtered by variant_id
-
+    _refresh_fingerprint(path)
+    
+def append_variant(data, path):
     #append_variant(data: dict) - validate then insert db row, append to file and update vcfHeader.file_mtime/size
-    def append_variant(data):
-        raise NotImplementedError
-    
-    #update_variants(variant_id, data: dict) -> int - patch the matching rows inside the db and rewrite the file atomically, return count of modified records
-    def update_variants(variant_id, data):
-        raise NotImplementedError
-    
-    #delete_variants(variant_id) -> int - delete matching rows and rewrite the file atomically, return count of deleted records
-    def delete_variants(variant_id):
-        raise NotImplementedError
-    #rewrite_vcf(path) - atomic write helper: read the header + variants from db, write to path.tmp, os.replace
+    #first write to file, then db, then fingerprint (plain append mode for speed may leave truncated line on crash)
+    line = '\t'.join([
+        data['chrom'],
+        str(data['pos']),
+        data['variant_id'],
+        data['ref'],
+        data['alt'],
+        '.', #QUAL
+        '.', #FILTER
+        '.', # INFO
+    ])
 
+    with open(path,'a', newline='' ) as fh:
+        fh.write(line + '\n')
+
+    Variant.objects.create(
+        chrom=data['chrom'],
+        pos=data['pos'],
+        variant_id=data['variant_id'],
+        ref=data['ref'],
+        alt=data['alt'],
+        raw_line=line,
+    )
+
+    _refresh_fingerprint(path)
+
+    
+def update_variants(variant_id, data, path):
+    #update_variants(variant_id, data: dict) -> int - patch the matching rows inside the db and rewrite the file atomically, return count of modified records
+    #preserves QUAL/FILTER/INFO/sample columns by rebuilding raw_line from existing.
+    with transaction.atomic():
+        matched = list(Variant.objects.filter(variant_id=variant_id))
+        if not matched:
+            return 0
+
+        for variant in matched:
+            parts = variant.raw_line.split('\t')
+            parts[0] = data['chrom']
+            parts[1] = str(data['pos'])
+            parts[2] = data['variant_id']
+            parts[3] = data['ref']
+            parts[4] = data['alt']
+            variant.chrom = data['chrom']
+            variant.pos = data['pos']
+            variant.variant_id = data['variant_id']
+            variant.ref = data['ref']
+            variant.alt = data['alt']
+            variant.raw_line = '\t'.join(parts)
+            variant.save()
+
+
+        rewrite_vcf(path)
+    return len(matched)
+    
+def delete_variants(variant_id, path):
+    #delete_variants(variant_id) -> int - delete matching rows and rewrite the file atomically, return count of deleted records
+    with transaction.atomic():
+        qs = Variant.objects.filter(variant_id=variant_id)
+        count = qs.count()
+        if count == 0:
+            return 0
+        qs.delete()
+        rewrite_vcf(path)
+    return count
