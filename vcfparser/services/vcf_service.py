@@ -7,7 +7,7 @@ def parse_vcf(path):
     #read VCF file and return header_text, rows where header text startswith '#' concat verbatim (including #CHROM) && rows is a list of dicts with 5 extracted fields + raw_line
 
     #parse_vcf(path) - > (header_text, list[dict]) - read file, split headers from body, return the header blob and a list of dicts with the 5 fields + raw_line
-    with open(path, 'r', newline='') as fh:
+    with open(path, 'r') as fh: 
         lines = fh.readlines()
 
     header_lines = []
