@@ -137,10 +137,15 @@ Write-Host "Secret loaded: $($secret.Length) chars"
 
 1) Fetch Variants by ID (ensure id exists):
 
+Replace `rs62635284` with any ID present in your loaded file:
+
+```powershell
 curl.exe -s "http://localhost:8000/api/variants/?id=rs62635284"
+```
 
 2) ETag + 304 try block:
 
+```powershell
 $r1 = Invoke-WebRequest -Uri "http://localhost:8000/api/variants/" -UseBasicParsing
 
 $etag = $r1.Headers['ETag']
@@ -154,22 +159,34 @@ try {
 } catch {
     Write-Host "Status: $($_.Exception.Response.StatusCode.value__)"
 }
+```
+
+Expected: ETag printed, then `Status: 304`.
 
 3) Content negotiation (returns XML)
 
+```powershell
 curl.exe -s -H "Accept: application/xml" "http://localhost:8000/api/variants/?id=rs62635284"
+```
 
 4) POST a new variant:
 
+```powershell
 curl.exe -s -w "`nStatus: %{http_code}`n" -X POST http://localhost:8000/api/variants/ `
     -H "Content-Type: application/json" `
     -H "Authorization: $secret" `
     -d '{\"CHROM\":\"chr1\",\"POS\":5000000,\"ID\":\"rs999999\",\"REF\":\"A\",\"ALT\":\"G\"}'
 
 curl.exe -s "http://localhost:8000/api/variants/?id=rs999999"
+```
+
+Expected: `Status: 201`, then the created row.
 
 5) PUT preserving trailing columns:
 
+Expected: `Status: 200`, `REF` changed from `A` to `C` in both the API response and the file line (trailing `.` columns preserved).
+
+```powershell
 curl.exe -s "http://localhost:8000/api/variants/?id=rs999999"
 
 curl.exe -s -w "`nStatus: %{http_code}`n" -X PUT "http://localhost:8000/api/variants/?id=rs999999" `
@@ -180,17 +197,26 @@ curl.exe -s -w "`nStatus: %{http_code}`n" -X PUT "http://localhost:8000/api/vari
 curl.exe -s "http://localhost:8000/api/variants/?id=rs999999"
 
 Select-String "rs999999" "data/sample.vcf"
+```
 
 6) DELETE:
 
+```powershell
 curl.exe -s -w "`nStatus: %{http_code}`n" -X DELETE "http://localhost:8000/api/variants/?id=rs999999" `
     -H "Authorization: $secret"
 
 curl.exe -s -w "`nStatus: %{http_code}`n" "http://localhost:8000/api/variants/?id=rs999999"
+```
+
+Expected: `Status: 204`, then `Status: 404`.
 
 7) Auth gate:
 
+```powershell
 curl.exe -s -w "`nStatus: %{http_code}`n" -X POST http://localhost:8000/api/variants/ `
     -H "Content-Type: application/json" `
     -H "Authorization: wrong-secret" `
     -d '{\"CHROM\":\"chr1\",\"POS\":1,\"ID\":\"rs1\",\"REF\":\"A\",\"ALT\":\"G\"}'
+```
+
+Expected: `{"detail":"Invalid or missing Authorization header"}`, then `Status: 403`.

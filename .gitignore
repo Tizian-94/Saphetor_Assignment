@@ -1,6 +1,8 @@
 #custom
 *.vcf
 data/*.vcf
+data/*.vcf.*
+data/*.bak
 data/*.tmp
 !data/.gitkeep
 
